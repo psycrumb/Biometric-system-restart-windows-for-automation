@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- web-->
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+        rel="stylesheet" type="text/css">
+    <!-- DataTables -->
+    <link href="{{ url_for('static', filename='public/plugins/datatables/dataTables.bootstrap4.min.css') }}"
+        rel="stylesheet" type="text/css" />
+    <link href="{{ url_for('static', filename='public/plugins/datatables/buttons.bootstrap4.min.css') }}"
+        rel="stylesheet" type="text/css" />
+    <!-- Responsive datatable examples -->
+    <link href="{{ url_for('static', filename='public/plugins/datatables/responsive.bootstrap4.min.css') }}"
+        rel="stylesheet" type="text/css" />
+
+    <title>Reset de Biométrico</title>
+</head>
+
+<body>
+    <br>
+    <div class="container">
+        <!--   <h2>Reset de Biométrico desde Python</h2>    -->
+    </div>
+    <div class="container-fluid">
+        <div class="list-group">
+
+            <div id="alertasContainer">
+                <div class="alert alert-primary" role="alert" style="display: none;">
+                    <!-- Quedan 60 segundos cayitas! -->
+                </div>
+            </div>
+
+            <div id="alertContainer" class="mb-3"></div>
+
+            <div class="container">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Programación de Reinicio</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="resetForm">
+                            <div class="row mb-3">
+                                <div class="col">
+                                    <label for="searchSelect" class="form-label">Selecciona Cerys</label><br>
+                                    <select id="searchSelect" class="form-select" onchange="filterTable()">
+                                        <option value="">Selecciona Cerys...</option>
+                                        <!-- Aquí puedes añadir más opciones -->
+                                    </select>
+                                </div>
+                                <div class="col">
+                                    <label for="scheduledTime" class="form-label">Programar Reinicio</label>
+                                    <input type="datetime-local" id="scheduledTime" class="form-control">
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" id="scheduleResetButton" class="btn btn-primary mt-4"
+                                        onclick="scheduleReset()">Programar Reinicio</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <table id="tablaPersonasi" class="table table-bordered table-striped" hidden>
+                <thead>
+                    <tr class="table-secondary">
+                        <th><input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"></th>
+                        <th>Cerys</th>
+                        <th>Posicion</th>
+                        <th>Dispositivo</th>
+                        <th>Ip</th>
+                        <th>Password</th>
+                        <th>Reset</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for i in range(urls | length) %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="deviceCheckbox" value="{{ loop.index0 }}"
+                                onclick="syncSelectAll(); toggleDevice(this, '{{ crys[i] }}', '{{ posicion[i] }}', '{{ dispositivo[i] }}', '{{ urls[i] }}')">
+                        </td>
+                        <td>{{ crys[i] }}</td>
+                        <td>{{ posicion[i] }}</td>
+                        <td>{{ dispositivo[i] }}</td>
+                        <td>
+                            <a href="javascript:void(0);"
+                                onclick="window.open('{{ urls[i] }}', 'popup', 'width=600,height=400');">{{ urls[i]
+                                }}</a>
+                        </td>
+                        <td>{{ passwords[i] }}</td>
+                        <td>
+                            <form action="/run_selenium" method="post" style="display: inline;">
+                                <input type="hidden" name="selected_index" value="{{ loop.index0 }}">
+                                <input type="hidden" name="url" value="{{ urls[i] }}">
+                                <input type="hidden" name="dispositivo" value="{{ dispositivo[i] }}">
+                                <input type="hidden" name="usuario" value="{{ request.args.get('usuario') }}">
+                                <button type="submit" class="btn btn-success btn-sm"
+                                    onclick="mostrarAlerta('{{ dispositivo[i] }}')">Reset</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!--        <h3>Acciones</h3>
+                <div class="form-group mb-3">
+                    <div class="btn-group" role="group">
+                        <button type="button" id="resetAllButton" class="btn btn-outline-primary btn-sm me-2"
+                            onclick="resetAll()">Reset All</button>
+                    </div>
+                </div>      -->
+        </div>
+
+        <br>
+        <h3>Ejecuciones Programadas</h3>
+        <div id="tableContainer" style="height: 800px;">
+            <table class="table table-bordered table-striped"
+                style="border-collapse: collapse; border-spacing: 0; width: 100%;" id="scheduledExecutions">
+                <thead>
+                    <tr>
+                        <th>Cerys</th> <!-- Nueva columna para Cerys -->
+                        <th>Dispositivos</th>
+                        <th>Fecha y Hora Programadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for execution in scheduled_executions %}
+                    <tr>
+                        <td>{{ execution[0] }}</td> <!-- Cerys -->
+                        <td>
+                            <span class="device-text">
+                                {{ execution[1][:60] }}{% if execution[1]|length > 60 %}...{% endif %}
+                            </span>
+                            {% if execution[1]|length > 60 %}
+                            <button class="btn btn-link show-more btn-sm"
+                                onclick="toggleDevice(this, '{{ execution[1] }}')">Ver más</button>
+                            {% endif %}
+                        </td> <!-- Dispositivo -->
+                        <td>{{ execution[2] }}</td> <!-- Fecha y Hora -->
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> <!-- Agregamos jQuery -->
+        <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.js"></script>
+        <!-- Agregamos el script de DataTables -->
+        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+        <script>
+            // Función para programar el reinicio  
+            // Función para programar el reinicio  
+            function scheduleReset() {
+                const scheduledTimeInput = document.getElementById('scheduledTime');
+                const scheduledTime = new Date(scheduledTimeInput.value);
+                const usuario = document.querySelector('input[name="usuario"]').value; // Asegúrate de que este input esté presente en el HTML
+
+                if (isNaN(scheduledTime.getTime())) {
+                    showAlert('Por favor, selecciona una fecha y hora válidas.', 'danger');
+                    return;
+                }
+
+
+                if (delay <= 0) {
+                    showAlert('La fecha y hora programadas deben ser en el futuro.', 'danger');
+                    return;
+                }
+
+                // Recoger solo los checkboxes que están seleccionados y visibles  
+                const checkboxes = Array.from(document.querySelectorAll('.deviceCheckbox:checked'))
+                    .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+
+                if (checkboxes.length === 0) {
+                    showAlert('No hay dispositivos seleccionados para reiniciar.', 'danger');
+                    return;
+                }
+
+                // Recoger los nombres de los dispositivos seleccionados y sus valores de crys  
+                const devicesToReset = checkboxes.map(checkbox => {
+                    const row = checkbox.closest('tr');
+                    const dispositivo = row.cells[3].innerText; // Obtiene el nombre del dispositivo  
+                    const crys = row.cells[1].innerText; // Obtiene el valor de crys  
+                    return { dispositivo, crys }; // Retorna un objeto con ambos valores  
+                });
+
+                // Agregar los detalles a la tabla de ejecuciones programadas  
+                addExecutionToTable(devicesToReset[0].crys, deviceNames, formattedTime); // Solo agregar una fila con todos los dispositivos  
+
+                // Enviar los detalles al servidor solo una vez  
+                fetch('/schedule-reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        devices: devicesToReset.map(device => device.dispositivo),
+                        scheduledTime: scheduledTimeInput.value,
+                        usuario: usuario // Incluye el usuario aquí  
+                    })
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            console.log('Ejecución programada guardada correctamente.');
+                        } else {
+                            console.error('Error al guardar la ejecución programada.');
+                        }
+                    })
+                    .catch(error => console.error('Error en la solicitud:', error));
+
+
+                setTimeout(() => {
+                    let index = 0;
+
+                    function submitNextForm() {
+                        if (index < checkboxes.length) {
+                            const row = checkboxes[index].closest('tr');
+                            const form = row.querySelector('form');
+                            form.submit();
+                            index++;
+                            setTimeout(submitNextForm, 60000); // Reinicia cada 1 minuto  
+                        }
+                    }
+
+                    submitNextForm();
+                }, delay);
+            }
+
+            // Función para agregar la ejecución programada a la tabla  
+            function addExecutionToTable(crys, device, scheduledTime) {
+                const dataTable = $('#scheduledExecutions').DataTable(); // Obtener la instancia de DataTable  
+
+                // Añadir la nueva fila  
+                dataTable.row.add([
+                    crys,
+                    device,
+                    scheduledTime
+                ]).draw(false); // 'false' mantiene la paginación actual  
+            }
+
+            // Función para mostrar el alert de Bootstrap  
+            function showAlert(message, type) {
+                const alertContainer = document.getElementById('alertContainer');
+                alertContainer.innerHTML = `<div class="alert alert-${type} alert-dismissible fade show" role="alert">  
+                                ${message}  
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>  
+                            </div>`;
+            }
+
+
+            // Inicializar el select con valores únicos de Cerys.  
+            document.addEventListener("DOMContentLoaded", function () {
+                const select = document.getElementById("searchSelect");
+                const rows = document.querySelectorAll("#tablaPersonasi tbody tr");
+                const uniqueCerys = new Set();
+
+                rows.forEach(row => {
+                    const cerys = row.cells[1].innerText;
+                    uniqueCerys.add(cerys);
+                });
+
+                uniqueCerys.forEach(cerys => {
+                    const option = document.createElement("option");
+                    option.value = cerys;
+                    option.textContent = cerys;
+                    select.appendChild(option);
+                });
+            });
+
+            // Sincronizar el estado del checkbox "Seleccionar Todos"  
+            function syncSelectAll() {
+                const checkboxes = document.querySelectorAll('.deviceCheckbox');
+                const selectAllCheckbox = document.getElementById('selectAll');
+                const totalCheckboxes = checkboxes.length;
+                const checkedCheckboxes = document.querySelectorAll('.deviceCheckbox:checked').length;
+
+                selectAllCheckbox.checked = totalCheckboxes === checkedCheckboxes;
+                selectAllCheckbox.indeterminate = checkedCheckboxes > 0 && checkedCheckboxes < totalCheckboxes;
+            }
+
+            // Reiniciar todos los dispositivos seleccionados  
+            function resetAll() {
+                const checkboxes = Array.from(document.querySelectorAll('.deviceCheckbox:checked'))
+                    .filter(checkbox => checkbox.closest('tr').style.display !== 'none');
+
+                const interval = 60000; // Intervalo de 1 minuto  
+                let index = 0;
+
+
+                if (checkboxes.length > 0) {
+                    submitNextForm();
+                } else {
+                    alert('No hay dispositivos seleccionados para reiniciar.');
+                }
+            }
+
+            // Función para filtrar la tabla  
+            function filterTable() {
+                const select = document.getElementById('searchSelect');
+                const filter = select.value.toLowerCase();
+                const rows = document.querySelectorAll('#tablaPersonasi tbody tr');
+
+                const table = document.getElementById('tablaPersonasi');
+                table.style.display = filter.length > 0 ? '' : 'none';
+
+                let anyRowVisible = false; // Variable para verificar si hay alguna fila visible  
+
+                rows.forEach(row => {
+                    const cerysCell = row.cells[1].innerText.toLowerCase();
+                    const isVisible = cerysCell.includes(filter);
+                    row.style.display = isVisible ? '' : 'none';
+                    const checkbox = row.querySelector('.deviceCheckbox');
+
+                    if (isVisible) {
+                        anyRowVisible = true; // Hay al menos una fila visible  
+                        checkbox.checked = true; // Marcar el checkbox de la fila visible  
+                    } else {
+                        checkbox.checked = false; // Desmarcar el checkbox si la fila no es visible  
+                    }
+                });
+
+                syncSelectAll();
+
+                // Activar el checkbox "Seleccionar Todos" si hay filas visibles  
+                const selectAllCheckbox = document.getElementById('selectAll');
+                selectAllCheckbox.checked = anyRowVisible; // Marcar como checked si hay filas visibles  
+            }
+
+
+            function toggleDevice(button, fullName) {
+                const deviceText = button.previousElementSibling;
+                if (button.textContent === 'Ver más') {
+                    deviceText.textContent = fullName; // Muestra el nombre completo del dispositivo  
+                    button.textContent = 'Ver menos'; // Cambia el texto del botón  
+                } else {
+                    deviceText.textContent = fullName.slice(0, 60) + '...'; // Vuelve a truncar  
+                    button.textContent = 'Ver más'; // Cambia el texto del botón  
+                }
+            }
+        ;
+        </script>
+        <!--aqui todo chido-->
+
+
+
+        <!-- Required datatable js -->
+        <script src="{{ url_for('static', filename='public/plugins/datatables/jquery.dataTables.min.js') }}"></script>
+        <script
+            src="{{ url_for('static', filename='public/plugins/datatables/dataTables.bootstrap4.min.js') }}"></script>
+        <!-- Buttons examples -->
+        <script src="{{ url_for('static', filename='public/plugins/datatables/dataTables.buttons.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/buttons.bootstrap4.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/jszip.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/pdfmake.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/vfs_fonts.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/buttons.html5.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/buttons.print.min.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/plugins/datatables/buttons.colVis.min.js') }}"></script>
+        <!-- Responsive examples -->
+        <script
+            src="{{ url_for('static', filename='public/plugins/datatables/dataTables.responsive.min.js') }}"></script>
+        <script
+            src="{{ url_for('static', filename='public/plugins/datatables/responsive.bootstrap4.min.js') }}"></script>
+        <!-- Datatable init js -->
+        <script src="{{ url_for('static', filename='public/assets/pages/datatables.init.js') }}"></script>
+        <script src="{{ url_for('static', filename='public/assets/js/app.js') }}"></script>
+        <script src="{{ url_for('static', filename='main.js') }}"></script>
+
+
+</body>
+
+</html>
